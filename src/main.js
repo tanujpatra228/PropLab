@@ -213,6 +213,8 @@ $('tunnelMax').addEventListener('click', e => {
   e.currentTarget.title = max ? 'Back to the 3D view' : 'Make the wind tunnel the main view';
 });
 $('resetView').addEventListener('click', () => fitCamera(true));
+// On short screens the open wind tunnel would cover the propeller, so start it collapsed.
+if ($('canvas').clientHeight < 720) { tWin.classList.add('collapsed'); $('tunnelMin').setAttribute('aria-expanded', 'false'); }
 
 const helpDlg = $('helpDlg');
 $('helpBtn').addEventListener('click', () => helpDlg.showModal());

@@ -66,9 +66,19 @@ function resize() {
 export function fitCamera(force) {
   if (!rig) return;
   const Rin = app.S.design.diaIn / 2, c = rig.camera, ctl = rig.controls;
-  const target = new THREE.Vector3(0, -0.35 * Rin, 0);
-  if (!rig.lastFit || force) c.position.set(1.9 * Rin, 1.25 * Rin, 2.45 * Rin).add(target);
-  else c.position.copy(target).add(c.position.clone().sub(ctl.target).multiplyScalar(Rin / rig.lastFit));
+  const target = new THREE.Vector3(0, -0.25 * Rin, 0);
+  let offset;
+  if (!rig.lastFit || force) {
+    // Fit a sphere around the prop disc and its slipstream into the narrower field of view.
+    const vHalf = THREE.MathUtils.degToRad(c.fov) / 2;
+    const hHalf = Math.atan(Math.tan(vHalf) * Math.max(c.aspect, 0.1));
+    const dist = (1.35 * Rin) / Math.sin(Math.min(vHalf, hHalf));
+    offset = new THREE.Vector3(1.9, 1.25, 2.45).normalize().multiplyScalar(dist);
+  } else {
+    // Size changed: keep the user's viewing angle and zoom, scaled to the new prop.
+    offset = c.position.clone().sub(ctl.target).multiplyScalar(Rin / rig.lastFit);
+  }
+  c.position.copy(target).add(offset);
   ctl.target.copy(target); ctl.minDistance = Rin * 0.8; ctl.maxDistance = Rin * 12; ctl.update();
   rig.lastFit = Rin;
 }
