@@ -1,0 +1,11 @@
+// Cloudflare Workers static assets deployment for PropLab.
+// `npm run build` writes the site to ./dist, `wrangler deploy` uploads it.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "proplab",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
