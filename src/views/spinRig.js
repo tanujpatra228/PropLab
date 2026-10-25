@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { app } from '../state.js';
 import { T, hexToRgb01 } from '../lib/theme.js';
 import { fmt } from '../lib/format.js';
-import { nacaPoints, polar, chordShape } from '../physics/index.js';
+import { airfoilShape, polar, chordRatio, bladeAngle } from '../physics/index.js';
 
 const deg = Math.PI / 180;
 const NP = 2200;      // airflow particles
@@ -84,18 +84,18 @@ export function fitCamera(force) {
 }
 
 /** Loft blade sections (NACA profile scaled by chord, twisted to the local pitch angle) for every blade. */
-function buildPropGeometry(d) {
-  const Rin = d.diaIn / 2, B = d.blades, Pin = d.pitchIn;
-  const sec = nacaPoints(d.camber, Math.max(d.thick, 0.06), 12), nP = sec.length, nS = 30, rHub = 0.12;
+function buildPropGeometry(d, spec) {
+  const Rin = d.diaIn / 2, B = d.blades;
+  const sec = airfoilShape(spec, 12), nP = sec.length, nS = 30, rHub = 0.12;
   const verts = [], idx = [], xs = [];
   for (let b = 0; b < B; b++) {
     const th = b * Math.PI * 2 / B, er = [Math.cos(th), 0, -Math.sin(th)], et = [-Math.sin(th), 0, -Math.cos(th)];
     const off = verts.length / 3;
     for (let s = 0; s < nS; s++) {
       const x = rHub + (1 - rHub) * (s / (nS - 1)), r = x * Rin;
-      let c = d.chordPct / 100 * Rin * chordShape(Math.max(x, 0.15));
+      let c = chordRatio(d, Math.max(x, 0.15)) * Rin;
       if (x > 0.96) c *= Math.sqrt(Math.max(0.05, (1 - x) / 0.04)) * 0.7 + 0.3 * (1 - (x - 0.96) / 0.04); // rounded tip
-      const beta = Math.atan(Pin / (2 * Math.PI * r)), cb = Math.cos(beta), sb = Math.sin(beta);
+      const beta = bladeAngle(d, Math.max(x, 0.15)), cb = Math.cos(beta), sb = Math.sin(beta);
       for (let k = 0; k < nP; k++) {
         const [u, w] = sec[k], t0 = (0.3 - u) * c, y0 = w * c;
         const tt = t0 * cb - y0 * sb, yy = t0 * sb + y0 * cb;
@@ -149,15 +149,15 @@ function colorProp() {
 /** Rebuild geometry if the shape changed, then recolor. Returns overlay figures. */
 export function updateProp() {
   if (!rig) return;
-  const R = app.R, d = R.d, key = [d.diaIn, d.pitchIn, d.blades, d.chordPct, d.camber, d.thick].join('|');
+  const R = app.R, d = R.d, key = JSON.stringify([d.diaIn, d.pitchIn, d.blades, d.chordPct, d.geometry || null, R.af.spec]);
   if (key !== rig.geoKey) {
     const grp = rig.propGroup;
     if (rig.mesh) { grp.remove(rig.mesh); rig.mesh.geometry.dispose(); }
     if (rig.hub) grp.remove(rig.hub);
     if (rig.motor) grp.remove(rig.motor);
-    rig.mesh = new THREE.Mesh(buildPropGeometry(d), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.1, side: THREE.DoubleSide }));
+    rig.mesh = new THREE.Mesh(buildPropGeometry(d, R.af.spec), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.1, side: THREE.DoubleSide }));
     grp.add(rig.mesh);
-    const Rin = d.diaIn / 2, hubH = Math.max(0.16 * Rin * d.chordPct / 18, 0.25);
+    const Rin = d.diaIn / 2, hubH = Math.max(0.16 * Rin * chordRatio(d, 0.75) / 0.18, 0.25);
     rig.hub = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * Rin, 0.13 * Rin, hubH, 32), new THREE.MeshStandardMaterial({ color: 0x2a3138, roughness: 0.4, metalness: 0.5 }));
     rig.motor = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * Rin, 0.16 * Rin, 0.22 * Rin, 32), new THREE.MeshStandardMaterial({ color: 0x3b444d, roughness: 0.5, metalness: 0.6 }));
     rig.motor.position.y = -hubH / 2 - 0.11 * Rin;
@@ -196,18 +196,20 @@ export function spinFrame(dt) {
   rig.points.visible = app.flow.on;
   if (app.flow.on) {
     // Actuator-disk slipstream: v(z) = vi * (1 + z / sqrt(z^2 + R^2)), tube radius from mass conservation.
-    const vMax = Math.max(...app.R.perf.st.map(s => s.vi), 0.1), K = Rin / 6, flowC = hexToRgb01(T.flow);
+    // V = flight speed through the disc (0 when hovering); slipstream speed is V + induced velocity.
+    const Vf = app.R.perf.V || 0;
+    const vMax = Math.max(...app.R.perf.st.map(s => Vf + 2 * s.vi), 0.5), K = Rin / 6, flowC = hexToRgb01(T.flow);
     for (let i = 0; i < NP; i++) {
-      const rd = p.rd[i], vi = Math.max(viAt(rd), 0.12 * vMax);
-      const z = p.z[i], v = vi * (1 + z / Math.sqrt(z * z + Rin * Rin));
-      const r = Math.min(rd * Rin * Math.sqrt(vi / Math.max(v, 0.05 * vi)), 3 * Rin);
+      const rd = p.rd[i], vi = Math.max(viAt(rd), Vf > 0 ? -0.45 * Vf : 0.06 * vMax);
+      const z = p.z[i], v = Math.max(Vf + vi * (1 + z / Math.sqrt(z * z + Rin * Rin)), 0.05 * vMax);
+      const r = Math.min(rd * Rin * Math.sqrt(Math.max(Vf + vi, 0.05 * vMax) / v), 3 * Rin);
       if (!paused) {
-        p.z[i] += Math.max(v, 0.06 * vi) * K * dt;
-        if (z > 0) p.th[i] += (vtAt(rd) / vi) * (Math.max(v, 0) * K * dt) / Math.max(r, 0.2 * Rin) * 0.8;
+        p.z[i] += v * K * dt;
+        if (z > 0) p.th[i] += (vtAt(rd) / Math.max(v, 0.1)) * (v * K * dt) / Math.max(r, 0.2 * Rin) * 0.8;
         if (p.z[i] > 2.6 * Rin) { p.z[i] = -1.5 * Rin - Math.random() * 0.3 * Rin; p.th[i] = Math.random() * Math.PI * 2; p.rd[i] = Math.sqrt(0.03 + Math.random() * 0.97); }
       }
       pos[i * 3] = r * Math.cos(p.th[i]); pos[i * 3 + 1] = -p.z[i]; pos[i * 3 + 2] = -r * Math.sin(p.th[i]);
-      const t = Math.min(1, v / (2 * vMax));
+      const t = Math.min(1, v / vMax);
       const fade = Math.min(1, (p.z[i] + 1.5 * Rin) / (0.4 * Rin)) * Math.min(1, (2.6 * Rin - p.z[i]) / (0.5 * Rin));
       const br = (0.38 + 0.62 * t) * Math.max(0, fade);
       col[i * 3] = flowC[0] * br + t * t * 0.4 * br; col[i * 3 + 1] = flowC[1] * br + t * t * 0.3 * br; col[i * 3 + 2] = flowC[2] * br;
@@ -222,5 +224,5 @@ export function spinFrame(dt) {
 /** Figures for the overlay under the 3D view */
 export function overlayFigures() {
   const R = app.R, vMean = R.perf.st.reduce((a, s) => a + s.vi, 0) / R.perf.st.length;
-  return { dia: `${fmt(app.S.design.diaIn, 1)} in`, flow: `${fmt(vMean * 2 * 3.6)} km/h`, tip: `${fmt(R.perf.Om * R.perf.R * 3.6)} km/h` };
+  return { dia: `${fmt(app.S.design.diaIn, 1)} in`, flow: `${fmt(Math.max(0, (R.perf.V || 0) + vMean * 2) * 3.6)} km/h`, tip: `${fmt(R.perf.Om * R.perf.R * 3.6)} km/h` };
 }

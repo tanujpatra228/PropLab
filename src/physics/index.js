@@ -4,3 +4,6 @@ export * from './airfoil.js';
 export * from './propeller.js';
 export * from './structure.js';
 export * from './drone.js';
+export * from './blade.js';
+export * from './kulfan.js';
+export * from './neuralfoil/model.js';

@@ -10,6 +10,8 @@ PropLab is a static single-page app: plain JavaScript (ES modules), built with V
 | Build / dev server | [Vite](https://vite.dev) | 8.1.x | Instant dev server, tiny config, fast production builds (Rolldown) |
 | 3D rendering | [Three.js](https://threejs.org) | 0.186.x | Industry-standard WebGL library; handles the propeller mesh, lighting, orbit camera |
 | 2D drawing | Canvas 2D API | built-in | Wind tunnel and performance chart. Fast and dependency-free |
+| Airfoil aerodynamics | [NeuralFoil](https://github.com/peterdsharpe/NeuralFoil) (ported to JS) | 0.3.3 weights, "large" | XFOIL-quality lift and drag in the browser, no server. Weights load lazily (~215 kB gzipped). See [NeuralFoil](knowledge-base/neuralfoil.md) |
+| Reference data | UIUC Propeller Database, APC performance files | n/a | Validation and measured blades. See [Reference data](knowledge-base/reference-data.md) |
 | UI | Hand-written HTML + CSS | n/a | The UI is small; a framework would add weight without benefit yet |
 | Tests | [Vitest](https://vitest.dev) | 5.0.x | Runs the physics in Node with zero config, same module system as the app |
 | Hosting | [Cloudflare Workers static assets](https://developers.cloudflare.com/workers/static-assets/) | n/a | Free tier, global CDN, no server to maintain |
@@ -37,7 +39,10 @@ Everything in `src/physics/` is plain functions with no DOM access. That makes i
 `spinRig.js` sets `THREE.ColorManagement.enabled = false` and uses linear output so the vertex colors (material, lift, stall) render exactly as authored. Light intensities are multiplied by π to match the classic lighting model. If you upgrade Three.js, check the 3D view still looks right.
 
 ### Three.js gets its own chunk
-`vite.config.js` splits Three.js (~560 kB) into a separate file so it stays cached across app updates. The app code itself is ~35 kB.
+`vite.config.js` splits Three.js (~560 kB) into a separate file so it stays cached across app updates. NeuralFoil's weights are another separate file, loaded with a dynamic `import()` after the page opens. The app code itself is ~65 kB.
+
+### Python only for tooling
+`scripts/export-neuralfoil.py` (needs `pip install neuralfoil`) regenerates the weights file. Nothing at runtime or in CI needs Python.
 
 ### Cloudflare Workers instead of Pages
 Workers static assets is Cloudflare's current recommendation for static sites and creates the project automatically on first deploy. No manual dashboard setup needed beyond the API token.

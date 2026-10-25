@@ -1,9 +1,9 @@
 import './style.css';
-import { app, loadPreset, restoreSaved, save, designPhys } from './state.js';
+import { app, loadPreset, restoreSaved, save, designPhys, airfoilSpec, MEASURED } from './state.js';
 import { readTokens, onThemeChange } from './lib/theme.js';
 import { fmt, fmtG, splitG } from './lib/format.js';
-import { syncSidebar, buildSidebar } from './controls.js';
-import { MATERIALS, G, airfoilModel, analyzeProp, structure, maxSafeRpm, analyzeDrone } from './physics/index.js';
+import { syncSidebar, buildSidebar, setModelNote } from './controls.js';
+import { MATERIALS, G, airfoilModel, analyzeProp, structure, maxSafeRpm, analyzeDrone, loadNeuralFoil, isNeuralFoilReady, pitchAt75 } from './physics/index.js';
 import { initChart, drawChart } from './views/chart.js';
 import { initTunnel, updateTunnel, tunnelFrame, invalidateTunnel } from './views/windTunnel.js';
 import { initSpinRig, updateProp, fitCamera, spinFrame, setColorMode, overlayFigures } from './views/spinRig.js';
@@ -18,24 +18,42 @@ presetSel.addEventListener('change', () => {
 });
 
 // ---------- compute ----------
-let af = null, afKey = '';
+// Airfoil models are cached: building a NeuralFoil lift/drag table takes ~60 ms.
+const afCache = new Map();
+function getAirfoil(spec) {
+  const key = JSON.stringify(spec) + (isNeuralFoilReady() ? ':nf' : ':classic');
+  if (!afCache.has(key)) {
+    if (afCache.size > 40) afCache.delete(afCache.keys().next().value);
+    afCache.set(key, airfoilModel(spec));
+  }
+  return afCache.get(key);
+}
 
 function compute() {
-  const d = designPhys();
-  const key = `${d.camber}|${d.thick}`;
-  if (key !== afKey) { af = airfoilModel(d.camber, d.thick); afKey = key; }
+  const af = getAirfoil(airfoilSpec());
+  const d = { ...designPhys(), camber: af.camber, thick: af.thick };
   const mat = MATERIALS[app.S.design.material];
-  const perf = analyzeProp(d, af, app.S.rpm);
-  const str = structure(d, mat, perf);
+  const V = (app.S.airspeedKmh || 0) / 3.6;
+  const perf = analyzeProp(d, af, app.S.rpm, 32, V);
+  const perfStatic = V > 0 ? analyzeProp(d, af, app.S.rpm, 20) : perf;
+  const str = structure(d, mat, perfStatic);
   const safe = maxSafeRpm(d, af, mat);
   const drone = analyzeDrone(d, af, mat, app.S.drone);
   const xMax = Math.max(drone.maxRpm * 1.15, app.S.rpm * 1.15, 3000);
   const curve = [];
-  for (let i = 1; i <= 44; i++) {
-    const rpm = xMax * i / 44, p = analyzeProp(d, af, rpm, 18);
+  for (let i = 1; i <= 32; i++) {
+    const rpm = xMax * i / 32, p = analyzeProp(d, af, rpm, 16);
     curve.push({ rpm, g: p.T / G * 1000, w: p.P, eff: p.gPerW });
   }
-  return { d, mat, perf, str, safe, drone, curve, xMax, af };
+  // Thrust and efficiency vs airspeed at the bench RPM, up to where thrust runs out
+  const pitchSpeed = pitchAt75(d) * 0.0254 * app.S.rpm / 60;
+  const vMax = Math.max(pitchSpeed * 1.25, V * 1.15, 5);
+  const speedCurve = [];
+  for (let i = 0; i <= 24; i++) {
+    const v = vMax * i / 24, p = analyzeProp(d, af, app.S.rpm, 16, v);
+    speedCurve.push({ kmh: v * 3.6, g: p.T / G * 1000, w: p.P, eta: p.eta * 100 });
+  }
+  return { d, mat, perf, perfStatic, str, safe, drone, curve, xMax, speedCurve, vMaxKmh: vMax * 3.6, af };
 }
 
 let pending = false;
@@ -51,7 +69,7 @@ function update() {
   syncSidebar(document.activeElement);
   markPreset();
   const S = app.S;
-  $('designation').textContent = `${fmt(S.design.diaIn, 1)} × ${fmt(S.design.pitchIn, 1)} × ${S.design.blades}`;
+  $('designation').textContent = MEASURED[S.design.planform] ? MEASURED[S.design.planform].label : `${fmt(S.design.diaIn, 1)} × ${fmt(S.design.pitchIn, 1)} × ${S.design.blades}`;
   renderBench(); renderDrone(); renderCoach(); drawChart(); updateProp(); updateTunnel();
   if (app.R) { const o = overlayFigures(); $('ov-dia').textContent = o.dia; $('ov-flow').textContent = o.flow; $('ov-tip').textContent = o.tip; }
 }
@@ -69,14 +87,20 @@ const gauge = (k, v, unit, x, dl = '') =>
 
 function renderBench() {
   const { perf, str, safe } = app.R, b = app.base && app.base.bench, S = app.S;
-  const tg = perf.T / G * 1000, [tv, tu] = splitG(tg), mach = perf.tipMach;
+  const tg = perf.T / G * 1000, [tv, tu] = splitG(tg), mach = perf.tipMach, moving = perf.V > 0;
   const sfTxt = str.sf >= 10 ? 'Very strong at this speed' : str.sf >= 2 ? 'Comfortable margin' : str.sf >= 1 ? 'Close to breaking' : 'Would break';
-  $('bench-sub').textContent = `One prop at ${fmt(S.rpm)} RPM, standing still`;
+  const a75 = perf.s75.alpha * 180 / Math.PI;
+  $('bench-sub').textContent = `One prop at ${fmt(S.rpm)} RPM, ${moving ? `moving at ${fmt(S.airspeedKmh)} km/h` : 'standing still'}`;
+  const propEff = moving
+    ? gauge('Prop efficiency', fmt(perf.eta * 100), '%', 'Share of motor power turned into forward push', delta(perf.eta, b && b.eta))
+    : gauge('Hover quality', fmt(perf.fm, 2), '', '1.0 is the theoretical best. Good props: 0.6 to 0.75', delta(perf.fm, b && b.fm));
   $('bench').innerHTML =
-    gauge('Thrust', tv, tu, 'Push it makes', delta(tg, b && b.tg)) +
+    gauge('Thrust', tv, tu, tg < 0 ? 'Negative: the air is faster than this prop can push' : moving ? 'Push at this airspeed' : 'Push it makes', delta(tg, b && b.tg)) +
     gauge('Power needed', fmt(perf.P, perf.P < 10 ? 1 : 0), 'W', 'At the motor shaft', delta(perf.P, b && b.P, false)) +
-    gauge('Efficiency', fmt(perf.gPerW, 1), 'g/W', 'Thrust per watt. Higher is better', delta(perf.gPerW, b && b.eff)) +
+    gauge('Efficiency', tg > 0 && perf.P > 0 ? fmt(perf.gPerW, 1) : '-', 'g/W', 'Thrust per watt. Higher is better', delta(perf.gPerW, b && b.eff)) +
+    propEff +
     gauge('Tip speed', fmt(mach * 100), '% of sound', mach > 0.6 ? 'Loud. Efficiency drops above ~60%' : 'Fine', delta(mach, b && b.mach, false)) +
+    gauge('Angle at 75%', fmt(a75, 1), '°', perf.s75.stalled ? 'Stalled here' : 'Angle the blade meets the air') +
     gauge('Prop weight', fmt(str.massG, 1), 'g', MATERIALS[S.design.material].name, delta(str.massG, b && b.mass, false)) +
     gauge('Strength margin', str.sf >= 50 ? '50+' : fmt(str.sf, 1), '×', `${sfTxt}. Safe to ${fmt(Math.round(safe / 100) * 100)} RPM`, delta(Math.min(str.sf, 50), b && b.sf));
 }
@@ -112,6 +136,7 @@ function renderDrone() {
 
 function renderCoach() {
   const { perf, drone: dr } = app.R, h = dr.hover, tips = [];
+  if (perf.V > 0 && perf.T <= 0) tips.push(['warn', `<b>The prop is windmilling at ${fmt(app.S.airspeedKmh)} km/h.</b> The air arrives faster than the blades can push it, so it makes drag instead of thrust. Spin faster, add pitch, or lower the airspeed. The Airspeed chart tab shows where thrust runs out.`]);
   if (!h) tips.push(['crit', `<b>Too heavy for these props.</b> Each motor must lift ${fmtG(dr.needG)}. Try a bigger diameter, more pitch, more blades, or a smaller battery.`]);
   if (dr.sfMax < 2) tips.push(['crit', `<b>Blades could snap at full power</b> (only ${fmt(dr.sfMax, 1)}× margin). Switch to glass-filled nylon or carbon, or make the section thicker.`]);
   if (perf.stallFrac > 0.25) tips.push(['warn', `<b>${fmt(perf.stallFrac * 100)}% of the outer blade is stalled</b>: the air can't follow the surface, so it shakes and wastes power. Lower the pitch or reduce the curve. Switch the 3D view to "Stall risk" to see where.`]);
@@ -131,7 +156,8 @@ $('pinBtn').addEventListener('click', () => {
   app.base = {
     label: $('designation').textContent,
     curve: curve.map(p => ({ ...p })),
-    bench: { tg: perf.T / G * 1000, P: perf.P, eff: perf.gPerW, mach: perf.tipMach, mass: str.massG, sf: Math.min(str.sf, 50) },
+    bench: { tg: perf.T / G * 1000, P: perf.P, eff: perf.gPerW, mach: perf.tipMach, mass: str.massG, sf: Math.min(str.sf, 50), eta: perf.eta, fm: perf.fm },
+    speedCurve: app.R.speedCurve.map(p => ({ ...p })),
     drone: { totalG: dr.totalG, minutes: dr.hover ? dr.hover.minutes : 0, tw: dr.tw, hEff: dr.hover ? dr.hover.gPerW : 0, payload: dr.payloadG }
   };
   $('clearBtn').hidden = false;
@@ -229,6 +255,10 @@ initSpinRig($('viewer'), $('legend3d'));
 onThemeChange(() => { invalidateTunnel(); if (app.R) { updateProp(); drawChart(); updateTunnel(); } });
 
 readTokens();
+setModelNote('Loading the accurate airfoil model…');
+loadNeuralFoil()
+  .then(() => { setModelNote('Lift and drag from <b>NeuralFoil</b>, an AI model trained on XFOIL airfoil analyses.'); schedule(); })
+  .catch(err => { console.error(err); setModelNote('Using the quick airfoil model (the accurate one could not load).'); });
 syncSidebar();
 markPreset();
 update();

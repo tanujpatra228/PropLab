@@ -15,6 +15,8 @@ This is PropLab's most distinctive path: very few hobby tools close the loop bet
 
 ## Direction B: Better aerodynamics
 
+**Status (2026-10-25): mostly done.** Validation suite, NeuralFoil in the browser, custom twist and chord, forward flight, more airfoils and the tip Mach correction have shipped. See [Knowledge base](knowledge-base/README.md) for results. Remaining: noise estimate, `.dat` airfoil import, forward-flight validation (see [Open questions](knowledge-base/open-questions.md)).
+
 | Idea | Value | Effort | Notes |
 | --- | --- | --- | --- |
 | Validation suite vs APC/UIUC data | High | Small | Turns "15 to 25%" into a measured number. See [Testing](guides/testing.md#validating-against-real-props) |
@@ -47,12 +49,12 @@ This is PropLab's most distinctive path: very few hobby tools close the loop bet
 
 ## Suggested order
 
-1. **Validation suite** (know how accurate you are before improving anything)
+1. ~~Validation suite~~ (done: 5.3% thrust / 7.5% power with measured geometry)
 2. **Share by link** (cheap, makes the project showable)
 3. **STL export**
 4. **Thrust stand + Web Serial**
-5. **Custom twist and chord** (now you can print and test the designs you optimise)
-6. **Forward flight**
+5. ~~Custom twist and chord~~ (done)
+6. ~~Forward flight~~ (done; still needs validation against UIUC advance-ratio data)
 7. Everything else as interest leads
 
 Each item should follow [Add a feature](guides/add-a-feature.md): physics and tests first, then UI, then a docs page.

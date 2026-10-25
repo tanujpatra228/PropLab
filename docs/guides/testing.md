@@ -2,6 +2,12 @@
 
 ## What's tested
 
+| File | Covers |
+| --- | --- |
+| `tests/physics.test.js` | Core physics with the classic airfoil model (below) |
+| `tests/neuralfoil.test.js` | NeuralFoil port vs Python reference values, symmetry and Reynolds trends, stall detection, Prandtl-Glauert, forward flight, explicit blade geometry |
+| `tests/validation.test.js` | **Regression guard** against UIUC wind-tunnel data. Fails if accuracy gets worse than the limits in [Validation](../knowledge-base/validation.md#run-it) |
+
 `tests/physics.test.js` checks the physics against known reference values and physical sanity rules:
 
 | Area | Test |
@@ -42,4 +48,11 @@ it('heavier material makes a heavier prop', () => {
 
 ## Validating against real props
 
-The best next step for trust is a test file that loads a few APC or UIUC data points (diameter, pitch, RPM, measured thrust and power) and checks PropLab stays within a stated error band. Record the error you see today, then use the test to make sure model changes improve it rather than make it worse.
+```bash
+npm run validate              # full error report, NeuralFoil
+npm run validate -- --classic # same with the classic airfoil model
+```
+
+The report compares PropLab with six UIUC wind-tunnel props (with their real blade geometry, then with PropLab's simple planform) and with APC's published files. Results and how to read them: [Knowledge base → Validation](../knowledge-base/validation.md). To add a prop: [Reference data → Adding a prop](../knowledge-base/reference-data.md#adding-a-prop-to-validation).
+
+After any physics change: run `npm run validate`, and if accuracy improved, tighten the limits in `tests/validation.test.js` and update the validation page.

@@ -9,6 +9,7 @@ A curve of one propeller's behaviour across the whole RPM range, in the Results 
 | Thrust | grams | See how much push is available and where hover sits |
 | Power | watts (shaft) | See how fast power climbs (roughly RPM³) |
 | g/W | grams per watt | Find the most efficient speed range |
+| Airspeed | grams vs km/h, at the bench RPM | See how thrust fades as the prop moves forward, and where it runs out |
 
 ## Markers
 
@@ -16,7 +17,7 @@ A curve of one propeller's behaviour across the whole RPM range, in the Results 
 | --- | --- |
 | Orange line + fill | This design |
 | Dashed grey line | Pinned baseline, if any |
-| ● filled dot | Bench speed (Test bench RPM) |
+| ● filled dot | Bench point: bench RPM standing still (RPM tabs), or bench airspeed (Airspeed tab), with prop efficiency in the label |
 | ○ hollow dot | Hover point on your drone |
 | Dotted horizontal line (Thrust tab) | Thrust each motor must make to hover. Where the curve crosses it is the hover RPM |
 | Dashed vertical line | Motor max RPM |
@@ -25,7 +26,7 @@ The X axis runs to 15% past the motor's max RPM or the bench RPM, whichever is l
 
 ## How it works
 
-- Data: `compute()` in `src/main.js` runs `analyzeProp()` at 44 evenly spaced RPMs (18 blade strips each, for speed) into `app.R.curve`.
+- Data: `compute()` in `src/main.js` runs `analyzeProp()` at 32 evenly spaced RPMs (16 blade strips each, for speed) into `app.R.curve`, and at 25 airspeeds from 0 to 1.25× the blade's pitch speed into `app.R.speedCurve`. The RPM tabs are always at airspeed 0.
 - Drawing: `drawChart()` in `src/views/chart.js`, plain Canvas 2D, redrawn on every compute, tab change, resize, and theme change. Grid steps use a "nice number" algorithm (1, 2, 5 × 10ⁿ).
 
 ## Extending

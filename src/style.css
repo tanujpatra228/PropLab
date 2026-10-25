@@ -116,6 +116,25 @@ button { cursor: pointer; }
 input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); height: 16px; }
 select { width: 100%; height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--chrome-2); }
 
+/* Disabled control, model status, custom planform editor */
+.prop.is-disabled { opacity: 0.45; }
+.model-note { margin: 0; font-size: 11px; color: var(--ink-3); padding: 7px 9px; border-radius: 6px; background: var(--chrome-2); line-height: 1.4; }
+.model-note b { color: var(--ink-2); font-weight: 600; }
+.plan-editor { display: grid; gap: 6px; }
+.plan-editor svg { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+.pe-bg { fill: var(--chrome-2); }
+.pe-grid { stroke: var(--line); stroke-width: 1; }
+.pe-label { font-size: 10.5px; fill: var(--ink-2); font-weight: 600; }
+.pe-tick { font-size: 9px; fill: var(--ink-3); font-family: var(--f-mono); }
+.pe-ref { fill: none; stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.pe-line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.pe-hit { fill: transparent; cursor: ns-resize; }
+.pe-dot { fill: var(--chrome); stroke: var(--accent); stroke-width: 2; pointer-events: none; }
+.pe-pt:focus { outline: none; }
+.pe-pt:focus .pe-dot, .pe-pt:hover .pe-dot { fill: var(--accent); }
+.plan-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tb-btn.small { height: 26px; padding: 0 10px; font-size: 11.5px; }
+
 /* ---------- Canvas ---------- */
 .canvas { grid-area: canvas; position: relative; overflow: hidden; background: var(--scope); color: var(--scope-ink); min-height: 0; container-type: size; }
 #viewer { position: absolute; inset: 0; }

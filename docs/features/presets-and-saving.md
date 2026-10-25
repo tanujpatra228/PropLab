@@ -9,6 +9,8 @@ The top-bar dropdown loads a complete starting design (propeller, test RPM, and 
 | 5-inch racer | 5.1 × 4.3 × 3 | Glass-filled nylon | 4 motors, 380 g, 6S 1100 mAh, 1950 Kv, 900 W |
 | 10-inch camera | 10 × 4.7 × 2 | Glass-filled nylon | 4 motors, 900 g, 4S 5000 mAh, 920 Kv, 260 W |
 | 15-inch lifter | 15 × 5.5 × 2 | Carbon fiber | 6 motors, 3200 g, 6S 16000 mAh, 380 Kv, 900 W |
+| APC 10×4.7 SF (real prop) | Measured UIUC blade, Eppler E63 | Glass-filled nylon | Same as 10-inch camera |
+| APC 10×5 E (real prop) | Measured UIUC blade, NACA 4406 | Glass-filled nylon | Same as 10-inch camera |
 
 As soon as you change anything, the dropdown shows **Custom**.
 
@@ -28,4 +30,4 @@ The baseline is not saved. If storage is blocked (private browsing), the app wor
 
 ### Changing the saved data shape
 
-If you rename or add fields in `app.S`, old saved designs may lack them. `restoreSaved()` only checks that `design` and `drone` exist. When you add a field, either merge saved data over the default preset, or bump the storage key (e.g. `proplab-state-v2`) so old data is ignored.
+If you rename or add fields in `app.S`, old saved designs may lack them. `restoreSaved()` merges saved data over the 10-inch preset, so new fields get their defaults automatically. It also resets unknown airfoils or planforms (for example, one that was removed) to safe values. For breaking changes, bump the storage key (e.g. `proplab-state-v2`).

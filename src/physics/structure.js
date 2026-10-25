@@ -1,5 +1,6 @@
 // PropLab physics. Units: SI internally (metres, newtons, watts) unless a name says otherwise.
-import { IN, chordShape } from './constants.js';
+import { IN } from './constants.js';
+import { chordRatio } from './blade.js';
 import { analyzeProp } from './propeller.js';
 
 // ---------- Structure: weight and strength ----------
@@ -9,7 +10,7 @@ export function structure(d, mat, perf) {
   const t = d.thick, Om = perf.Om;
   let vol = 0, Fc = 0, M = 0;
   for (let i = 0; i < ns; i++) {
-    const r = r0 + (i + 0.5) * dr, c = d.chordPct / 100 * R * chordShape(r / R);
+    const r = r0 + (i + 0.5) * dr, c = chordRatio(d, r / R) * R;
     const A = 0.685 * t * c * c;
     vol += A * dr; Fc += mat.rho * A * Om * Om * r * dr;
     M += (perf.st[i].Tp / B) * (r - r0) * dr;
@@ -17,7 +18,7 @@ export function structure(d, mat, perf) {
   const hubR = Math.max(0.06 * R, 0.006), hubH = Math.max(0.05 * R, 0.006);
   const hubVol = Math.PI * hubR * hubR * hubH * 0.7;
   const massG = (vol * B + hubVol) * mat.rho * 1000;
-  const c0 = d.chordPct / 100 * R * chordShape(0.15), tr = Math.min(0.3, t * 2.2), h = tr * c0;
+  const c0 = chordRatio(d, 0.15) * R, tr = Math.min(0.3, Math.max(0.2, t * 2.2)), h = tr * c0; // real roots thicken toward the hub (calibrated to APC RPM limits)
   const Aroot = 0.685 * tr * c0 * c0, I = 0.0365 * c0 * h * h * h, Z = I / (h / 2);
   const stressMPa = (Fc / Aroot + Math.abs(M) / Z) / 1e6;
   return { massG, stressMPa, sf: stressMPa > 0 ? mat.mpa / stressMPa : 99 };
@@ -28,6 +29,6 @@ export function maxSafeRpm(d, af, mat) {
   let lo = 500, hi = 80000;
   const sfAt = rpm => structure(d, mat, analyzeProp(d, af, rpm, 16)).sf;
   if (sfAt(hi) >= 2) return hi;
-  for (let k = 0; k < 22; k++) { const m = (lo + hi) / 2; if (sfAt(m) >= 2) lo = m; else hi = m; }
+  for (let k = 0; k < 16; k++) { const m = (lo + hi) / 2; if (sfAt(m) >= 2) lo = m; else hi = m; }
   return lo;
 }

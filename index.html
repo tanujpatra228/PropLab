@@ -32,6 +32,10 @@
           <option value="r5">5-inch racer</option>
           <option value="c10">10-inch camera</option>
           <option value="h15">15-inch lifter</option>
+          <optgroup label="Real props (measured)">
+            <option value="apcsf10">APC 10×4.7 SF</option>
+            <option value="apce10">APC 10×5 E</option>
+          </optgroup>
         </select>
       </label>
       <button class="tb-btn" id="clearBtn" hidden>Clear baseline</button>
@@ -120,6 +124,7 @@
             <button data-tab="thrust" aria-pressed="true">Thrust</button>
             <button data-tab="power" aria-pressed="false">Power</button>
             <button data-tab="eff" aria-pressed="false">g/W</button>
+            <button data-tab="speed" aria-pressed="false">Airspeed</button>
           </div>
         </div>
         <canvas id="chart" aria-label="Performance chart for one propeller"></canvas>
@@ -137,10 +142,10 @@
   <form method="dialog" class="dlg">
     <header><h2 id="helpTitle">How PropLab works, and how far to trust it</h2><button class="icon-btn" value="close" aria-label="Close">✕</button></header>
     <div class="dlg-grid">
-      <div><h3>Wind tunnel</h3><p>A panel method splits the blade slice into 60 small pieces and solves how air must flow so none passes through the surface. It is the idea inside XFOIL. It can't predict stall on its own, so stall comes from typical test data.</p></div>
-      <div><h3>Thrust and power</h3><p>Blade Element Momentum Theory cuts each blade into 32 strips, finds the lift and drag on each, and balances that against the air pushed down. Expect 15 to 25% error versus a real prop.</p></div>
-      <div><h3>Strength</h3><p>Spinning pulls each blade outward and thrust bends it. PropLab adds both at the blade root and compares with the material's strength. It wants at least a 2× margin.</p></div>
-      <div><h3>Drone</h3><p>Battery weight comes from its energy (about 160 Wh per kg). Hover time assumes 70% drivetrain efficiency and 80% usable battery. Real flying uses more.</p></div>
+      <div><h3>Lift and drag</h3><p>NeuralFoil, an AI model trained on thousands of XFOIL airfoil analyses, predicts how much lift and drag each blade slice makes, including stall and the extra drag small blades suffer. It runs right here in your browser.</p></div>
+      <div><h3>Thrust and power</h3><p>Blade Element Momentum Theory cuts each blade into 32 strips, finds the lift and drag on each, and balances that against the air pushed through the prop, standing still or moving forward.</p></div>
+      <div><h3>How accurate?</h3><p>Against wind-tunnel tests of six real APC props: within about 5% on thrust and 7.5% on power with the real blade shape, and about 11 to 14% with the simple classic shape.</p></div>
+      <div><h3>Strength and drone</h3><p>Spinning pulls each blade outward and thrust bends it; PropLab wants a 2× margin. It doesn't model flutter, so treat flexible blades with care. Hover time assumes calm air; real flights use more.</p></div>
     </div>
     <p class="dlg-keys"><kbd>Ctrl</kbd> + <kbd>\</kbd> hides or shows both panels.</p>
   </form>

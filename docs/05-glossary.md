@@ -31,3 +31,10 @@ Plain-language meanings of the terms used in PropLab. Useful when writing UI cop
 | **Thrust** | The push the propeller makes | Grams or kilograms |
 | **Thrust-to-weight (T/W)** | Max thrust divided by drone weight. 2× or more flies well | Flight verdict |
 | **Tip loss** | Air leaking around the blade tips, which lowers thrust near the tips | Prandtl tip-loss factor in BEMT |
+| **Advance ratio (J)** | How far the prop moves forward per turn, compared with its diameter: airspeed ÷ (revolutions per second × diameter) | Computed in `analyzeProp` when airspeed > 0 |
+| **Kulfan (CST) parameters** | 18 numbers that describe an airfoil's shape smoothly; the input format NeuralFoil expects | `kulfan.js` |
+| **NeuralFoil** | An AI model trained on XFOIL that predicts airfoil lift and drag quickly | Default lift/drag model |
+| **Planform** | How the blade's width and twist change from root to tip | Classic, custom or measured, in Blade shape |
+| **Propulsive efficiency (η)** | Share of motor power turned into useful forward push when moving | "Prop efficiency" readout when airspeed > 0 |
+| **Windmilling** | When air moves faster than the prop can push it, so the air drives the prop and thrust turns negative | Explained in the bench readout and Coach |
+| **XFOIL** | The classic airfoil analysis program by Mark Drela (MIT). NeuralFoil learned from it | Background for NeuralFoil |

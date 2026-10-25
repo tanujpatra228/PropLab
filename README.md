@@ -11,19 +11,21 @@ PropLab is a browser-based propeller design editor for hobbyists. Shape the blad
 - **Bench readout:** thrust, shaft power, efficiency (g/W), tip speed, prop weight, strength margin and safe RPM.
 - **Flight verdict:** all-up weight, hover RPM and throttle, hover time, thrust-to-weight, payload headroom.
 - **Baseline compare:** pin a design, tweak one thing, see green/red deltas on every number and a dashed curve on the chart.
-- **Coach:** plain-language suggestions when something is off (stall, tip speed, weak blades, too heavy).
+- **Coach:** plain-language suggestions when something is off (stall, tip speed, weak blades, too heavy, windmilling).
+- **Accurate aerodynamics:** NeuralFoil (an XFOIL-trained AI model) runs in the browser for lift and drag. Choose NACA, Clark Y or Eppler E63 airfoils, draw your own blade width and twist, or start from real measured APC blades.
+- **Forward flight:** set an airspeed to see thrust and propeller efficiency on a moving aircraft.
 
 ## How the physics works
 
 | What | Method | Where |
 | --- | --- | --- |
-| Airflow around the blade slice | Hess-Smith panel method on NACA 4-digit airfoils | `src/physics/airfoil.js` |
-| Lift/drag incl. stall and low Reynolds number | Panel-method slope and zero-lift angle + empirical stall model | `src/physics/airfoil.js` (`polar`) |
-| Thrust, torque, power | Static Blade Element Momentum Theory with Prandtl tip loss | `src/physics/propeller.js` |
+| Airflow around the blade slice | Hess-Smith panel method on the selected airfoil | `src/physics/airfoil.js` |
+| Lift/drag incl. stall and low Reynolds number | NeuralFoil (ported to JavaScript), with a classic empirical fallback | `src/physics/airfoil.js`, `src/physics/neuralfoil/` |
+| Thrust, torque, power | Blade Element Momentum Theory with Prandtl tip loss, hover and forward flight | `src/physics/propeller.js` |
 | Weight and strength | Centrifugal + thrust-bending stress at the blade root | `src/physics/structure.js` |
 | Drone performance | Battery mass from energy density, motor power/voltage limits | `src/physics/drone.js` |
 
-Estimates are typically within 15 to 25% of real props. Use them to compare designs and build intuition, not to certify hardware. `tests/physics.test.js` checks the solvers against known reference values (e.g. NACA 0012 lift, APC 10x4.7 static thrust range).
+**Measured accuracy:** within 5.3% on thrust and 7.5% on power against UIUC wind-tunnel data for six APC props (with their real blade geometry), about 11% / 13.5% with PropLab's simple blade shape. Run `npm run validate` for the full report; details in [docs/knowledge-base/validation.md](docs/knowledge-base/validation.md). Good for comparing designs and building intuition, not for certifying hardware.
 
 ## Run locally
 
@@ -32,7 +34,8 @@ Requires Node 20.19+ (Node 24 recommended).
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm test         # physics tests
+npm test         # physics + validation tests
+npm run validate # accuracy report vs wind-tunnel data
 npm run build    # production build in ./dist
 ```
 
@@ -47,7 +50,10 @@ src/physics/           Pure, framework-free physics (unit tested)
 src/views/spinRig.js   Three.js propeller + slipstream particles
 src/views/windTunnel.js 2D panel-method flow field + particle tracer
 src/views/chart.js     Performance curve (canvas)
-tests/                 Vitest physics tests
+src/data/              Measured reference propellers (UIUC)
+scripts/               Validation report, NeuralFoil weight export
+docs/                  Documentation and knowledge base
+tests/                 Vitest physics, NeuralFoil and validation tests
 ```
 
 ## Deployment

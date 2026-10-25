@@ -3,7 +3,7 @@
 import { app } from '../state.js';
 import { T, hexToRgb255, mix } from '../lib/theme.js';
 import { fmt } from '../lib/format.js';
-import { nacaPoints, panelSolve, polar } from '../physics/index.js';
+import { airfoilShape, panelSolve, polar } from '../physics/index.js';
 
 const deg = Math.PI / 180;
 const TW = 120, TH = 60;                         // field grid resolution
@@ -52,17 +52,17 @@ export function updateTunnel() {
   const locked = lockEl.checked, s75 = R.perf.s75;
   const alphaDeg = locked ? s75.alpha / deg : parseFloat(aoaEl.value);
   if (locked) aoaEl.value = alphaDeg.toFixed(1);
-  const p = polar(R.af, alphaDeg * deg, locked ? s75.Re : 1.2e5);
+  const p = polar(R.af, alphaDeg * deg, locked ? s75.Re : 1.2e5, locked ? s75.mach : 0);
   F.cl = p.cl; F.stalled = p.stalled;
   const margin = p.aStall / deg - alphaDeg;
   const state = p.stalled ? `<b style="color:${T.crit}">Stalled</b>` : margin < 3 ? `<b style="color:${T.warn}">Near stall</b>` : `<b style="color:${T.good}">Smooth flow</b>`;
   statsEl.innerHTML = `<span>Angle to the air <b>${fmt(alphaDeg, 1)}°</b></span><span>Lift strength (Cl) <b>${fmt(p.cl, 2)}</b></span><span>Stalls at <b>${fmt(p.aStall / deg, 1)}°</b></span><span>${state}</span>`;
-  const key = [R.d.camber, R.d.thick, alphaDeg.toFixed(2), p.stalled].join('|');
-  if (key !== F.key) { F.key = key; buildField(R.d.camber, R.d.thick, alphaDeg * deg, p.stalled); }
+  const key = JSON.stringify([R.af.spec, alphaDeg.toFixed(2), p.stalled]);
+  if (key !== F.key) { F.key = key; buildField(R.af.spec, alphaDeg * deg, p.stalled); }
 }
 
-function buildField(camber, thick, a, stalled) {
-  const pts = nacaPoints(camber, thick, 30), sol = panelSolve(pts, a);
+function buildField(spec, a, stalled) {
+  const pts = airfoilShape(spec, 30), sol = panelSolve(pts, a);
   const ca = Math.cos(a), sa = Math.sin(a), ta = Math.tan(Math.max(a, 0));
   // Display keeps the flow horizontal and tilts the airfoil nose-up by alpha about its quarter chord.
   F.poly = pts.map(([ax, ay]) => [0.25 + (ax - 0.25) * ca + ay * sa, -(ax - 0.25) * sa + ay * ca]);

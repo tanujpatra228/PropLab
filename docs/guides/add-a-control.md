@@ -55,6 +55,14 @@ Users who already have a saved design won't have `hubPct`. Either default it whe
 
 Add a test that the physics responds sensibly (e.g. a bigger hub slightly reduces thrust), then `npm test`.
 
-## A select instead of a slider
+## Other control types
 
-Sections can also hold a custom control, like the Material section (`select: true` with `materialMarkup()`). Copy that pattern: add markup in `buildSidebar()`, a `change` listener that writes `app.S` and calls `syncSidebar()` + `onChangeCb()`, and a line in `syncSidebar()` to reflect the value.
+A control entry can also be:
+
+| `type` | Example | Needs |
+| --- | --- | --- |
+| `'select'` | Airfoil, Planform, Material | `options: () => [[value, label], ...]`, optional `onChange(value)` |
+| `'editor'` | Custom planform editor | Its own init/draw functions in `controls.js` |
+| `'note'` | NeuralFoil status line | Text set with `setModelNote()` |
+
+Any control can take `show: () => boolean` (hide it when irrelevant, e.g. camber only for NACA airfoils), `disabled: () => boolean` (e.g. pitch for measured blades), and `hint` as a string or a function.

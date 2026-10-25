@@ -22,14 +22,14 @@ export function analyzeDrone(d, af, mat, dr) {
   const shaftMax = dr.motorW * 0.85;
   if (analyzeProp(d, af, rpmVolt, 16).P > shaftMax) {
     let lo = 200, hi = rpmVolt;
-    for (let k = 0; k < 26; k++) { const m = (lo + hi) / 2; if (analyzeProp(d, af, m, 16).P < shaftMax) lo = m; else hi = m; }
+    for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (analyzeProp(d, af, m, 16).P < shaftMax) lo = m; else hi = m; }
     maxRpm = lo; limitedBy = 'motor';
   }
   const tMax = thrustAt(d, af, maxRpm);
   let hoverRpm = null;
   if (tMax >= need) {
     let lo = 200, hi = maxRpm;
-    for (let k = 0; k < 28; k++) { const m = (lo + hi) / 2; if (thrustAt(d, af, m) < need) lo = m; else hi = m; }
+    for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2; if (thrustAt(d, af, m) < need) lo = m; else hi = m; }
     hoverRpm = hi;
   }
   const tw = tMax * dr.motors / (totalG / 1000 * G);

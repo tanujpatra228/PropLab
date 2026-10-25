@@ -4,11 +4,11 @@ A floating window on the canvas showing live airflow around one slice of your bl
 
 ## What you see
 
-- **The airfoil** tilted to its angle of attack, with air flowing left to right.
+- **The airfoil** you chose (NACA, Clark Y or E63) tilted to its angle of attack, with air flowing left to right.
 - **Background color:** blue where air slows down (higher pressure), orange where it speeds up (lower pressure). Low pressure on top and high pressure underneath is what makes lift.
 - **Streak particles** tracing the actual flow lines, bending around the nose and over the top.
 - **Lift arrow** sized by the lift coefficient.
-- **Stats line:** angle to the air, lift strength (Cl), stall angle, and a status (Smooth flow / Near stall / Stalled).
+- **Stats line:** angle to the air, lift strength (Cl), stall angle, and a status (Smooth flow / Near stall / Stalled). Lift and stall come from NeuralFoil, at the slice's real Reynolds and Mach number.
 
 When the blade stalls, a grey dead-air region appears above the back of the airfoil, particles there jitter, and a red warning shows.
 
@@ -23,8 +23,8 @@ When the blade stalls, a grey dead-air region appears above the back of the airf
 
 ## How it works
 
-1. `updateTunnel()` in `src/views/windTunnel.js` picks the angle, gets lift and stall info from `polar()`, and builds a cache key from camber, thickness, angle, and stall state.
-2. If the key changed, `buildField()` runs the panel method (`panelSolve()`, 60 panels) once, then samples velocity on a 120 × 60 grid. Points inside the airfoil are masked out.
+1. `updateTunnel()` in `src/views/windTunnel.js` picks the angle, gets lift and stall info from `polar()`, and builds a cache key from the airfoil spec, angle, and stall state.
+2. If the key changed, `buildField()` gets the outline from `airfoilShape()`, runs the panel method (`panelSolve()`, 60 panels) once, then samples velocity on a 120 × 60 grid. Points inside the airfoil are masked out.
 3. `paintField()` colors each grid cell by speed ratio and draws it to an offscreen canvas, which is scaled up smoothly every frame.
 4. `tunnelFrame()` moves 380 particles through the grid each frame using bilinear interpolation and draws 9-point trails.
 
@@ -32,7 +32,7 @@ The display keeps the flow horizontal and rotates the airfoil about its quarter-
 
 ### About stall in this view
 
-The panel method is inviscid, so real flow separation can't come out of it. The dead-air region is a **visual sketch** placed when the polar model says the airfoil is stalled. The stall angle and lift numbers come from the [polar model](../04-physics.md#3-lift-and-drag-the-polar).
+The panel method is inviscid, so real flow separation can't come out of it. The dead-air region is a **visual sketch** placed when the lift/drag model says the airfoil is stalled. The stall angle and lift numbers come from [NeuralFoil](../04-physics.md#3-lift-and-drag-neuralfoil-default-or-classic).
 
 ## Extending
 
